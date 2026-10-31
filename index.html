@@ -13,7 +13,7 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; color: #94a3b8; font-size: 13px; }
         input[type="text"], input[type="password"], textarea, select { width: 100%; padding: 12px; border: 1px solid #334155; background: #0f172a; color: #fff; border-radius: 6px; box-sizing: border-box; }
-        textarea { resize: vertical; height: 120px; }
+        textarea { resize: vertical; height: 100px; }
         button { background: #0284c7; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0369a1; }
         .btn-success { background: #10b981; }
@@ -23,6 +23,7 @@
         .status-box { margin-top: 15px; padding: 12px; border-radius: 6px; display: none; font-size: 14px; }
         .success { background: #065f46; color: #d1fae5; }
         .error { background: #991b1b; color: #fee2e2; }
+        .preview-img { max-width: 100px; border-radius: 4px; margin-top: 5px; display: none; }
     </style>
 </head>
 <body>
@@ -48,13 +49,13 @@
         <button id="test_conn">Probar Conexión WP</button>
         <div id="status" class="status-box"></div>
 
-        <!-- Importador IMDb Real -->
-        <h2>1. Importar Metadatos Reales por IMDb</h2>
+        <!-- Importador IMDb Real con Póster, Valoración y Tráiler -->
+        <h2>1. Importar Metadatos, Póster y Tráiler por IMDb</h2>
         <div class="form-group">
             <label>ID O URL DE IMDb (Ej. tt1375666)</label>
-            <input type="text" id="imdb_input" placeholder="https://www.imdb.com/title/tt1375666/ o solo tt1375666" value="tt4180135">
+            <input type="text" id="imdb_input" placeholder="https://www.imdb.com/title/tt1375666/ o solo tt1375666">
         </div>
-        <button id="imdb_btn" class="btn-imdb">Obtener Datos Reales de IMDb</button>
+        <button id="imdb_btn" class="btn-imdb">Obtener Datos Completos de IMDb</button>
         <div id="imdb_status" class="status-box"></div>
 
         <!-- Publicador para MovieEngine Pro -->
@@ -78,7 +79,23 @@
         </div>
 
         <div class="form-group">
-            <label>ID DE IMDb (CLAVE PARA MOVIEENGINE)</label>
+            <label>URL DEL PÓSTER (IMAGEN)</label>
+            <input type="text" id="meta_poster" placeholder="https://...">
+            <img id="poster_preview" class="preview-img" alt="Vista previa póster">
+        </div>
+
+        <div class="form-group">
+            <label>VALORACIÓN (NOTA MEDIA)</label>
+            <input type="text" id="meta_vote" placeholder="Ej. 8.5">
+        </div>
+
+        <div class="form-group">
+            <label>ENLACE DE TRÁILER (YOUTUBE / EMBED)</label>
+            <input type="text" id="meta_trailer" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
+
+        <div class="form-group">
+            <label>ID DE IMDb (CLAVE PRINCIPAL)</label>
             <input type="text" id="meta_imdb" placeholder="Ej. tt1375666">
         </div>
 
@@ -131,7 +148,7 @@
             }
         });
 
-        // 2. Obtener Metadatos Reales desde IMDb (Usando API pública de Cinemeta / TVMaze)
+        // 2. Obtener Datos Completos (Título, Sinopsis, Póster, Valoración y Tráiler)
         document.getElementById('imdb_btn').addEventListener('click', async () => {
             let imdbVal = document.getElementById('imdb_input').value.trim();
             const imdbStatus = document.getElementById('imdb_status');
@@ -148,47 +165,72 @@
 
             imdbStatus.style.display = 'block';
             imdbStatus.className = 'status-box';
-            imdbStatus.innerText = `Consultando metadatos para (${imdbId})...`;
+            imdbStatus.innerText = `Extrayendo metadatos, póster y tráiler para (${imdbId})...`;
 
             try {
-                // Usamos la API pública de Stremio/Cinemeta que extrae los datos directos de IMDb en castellano/inglés sin restricciones
+                // Consultar API de metadatos de cine con soporte para póster y valoración
                 const res = await fetch(`https://v3-cinemeta.strem.io/meta/movie/${imdbId}.json`);
                 const json = await res.json();
 
-                if (json && json.meta) {
-                    const movie = json.meta;
-                    document.getElementById('post_title').value = movie.name + (movie.year ? ` (${movie.year})` : '');
-                    document.getElementById('post_content').value = movie.description || "Sinopsis oficial disponible en MorvehTV.";
-                    document.getElementById('meta_imdb').value = imdbId;
-                    document.getElementById('post_type').value = "movie_engine_movie";
+                let mediaData = null;
+                let isSeries = false;
 
-                    imdbStatus.className = 'status-box success';
-                    imdbStatus.innerText = `¡Metadatos de "${movie.name}" cargados con éxito!`;
+                if (json && json.meta) {
+                    mediaData = json.meta;
                 } else {
-                    // Intentar como serie si no es película
+                    // Intentar como serie
                     const seriesRes = await fetch(`https://v3-cinemeta.strem.io/meta/series/${imdbId}.json`);
                     const seriesJson = await seriesRes.json();
-
                     if (seriesJson && seriesJson.meta) {
-                        const serie = seriesJson.meta;
-                        document.getElementById('post_title').value = serie.name + (serie.year ? ` (${serie.year})` : '');
-                        document.getElementById('post_content').value = serie.description || "Sinopsis oficial de la serie.";
-                        document.getElementById('meta_imdb').value = imdbId;
-                        document.getElementById('post_type').value = "movie_engine_series";
-
-                        imdbStatus.className = 'status-box success';
-                        imdbStatus.innerText = `¡Metadatos de la serie "${serie.name}" cargados con éxito!`;
-                    } else {
-                        throw new Error("No se encontró el contenido.");
+                        mediaData = seriesJson.meta;
+                        isSeries = true;
                     }
+                }
+
+                if (mediaData) {
+                    document.getElementById('post_title').value = mediaData.name + (mediaData.year ? ` (${mediaData.year})` : '');
+                    document.getElementById('post_content').value = mediaData.description || "Sinopsis oficial disponible.";
+                    document.getElementById('meta_imdb').value = imdbId;
+                    
+                    // Póster
+                    if (mediaData.poster) {
+                        document.getElementById('meta_poster').value = mediaData.poster;
+                        const prev = document.getElementById('poster_preview');
+                        prev.src = mediaData.poster;
+                        prev.style.display = 'block';
+                    }
+
+                    // Valoración / Nota media
+                    if (mediaData.imdbRating) {
+                        document.getElementById('meta_vote').value = mediaData.imdbRating;
+                    }
+
+                    // Tráiler (si viene enlazado o se autogenera búsqueda en YouTube)
+                    if (mediaData.trailerStreams && mediaData.trailerStreams.length > 0) {
+                        document.getElementById('meta_trailer').value = mediaData.trailerStreams[0].url;
+                    } else {
+                        document.getElementById('meta_trailer').value = `https://www.youtube.com/results?search_query=${encodeURIComponent(mediaData.name + ' trailer oficial castellano')}`;
+                    }
+
+                    // Tipo de contenido
+                    if (isSeries) {
+                        document.getElementById('post_type').value = "movie_engine_series";
+                    } else {
+                        document.getElementById('post_type').value = "movie_engine_movie";
+                    }
+
+                    imdbStatus.className = 'status-box success';
+                    imdbStatus.innerText = `¡Ficha completa de "${mediaData.name}" cargada con éxito!`;
+                } else {
+                    throw new Error("No se encontró información para este ID.");
                 }
             } catch (error) {
                 imdbStatus.className = 'status-box error';
-                imdbStatus.innerText = `Error al obtener metadatos: ${error.message}`;
+                imdbStatus.innerText = `Error al obtener datos: ${error.message}`;
             }
         });
 
-        // 3. Publicar directamente en los endpoints de MovieEngine Pro
+        // 3. Publicar en MovieEngine Pro enviando todos los metadatos avanzados
         document.getElementById('publish_btn').addEventListener('click', async () => {
             const url = document.getElementById('wp_url').value.trim().replace(/\/+$/, '');
             const user = document.getElementById('wp_user').value.trim();
@@ -197,6 +239,9 @@
             const title = document.getElementById('post_title').value.trim();
             const content = document.getElementById('post_content').value.trim();
             const imdbId = document.getElementById('meta_imdb').value.trim();
+            const poster = document.getElementById('meta_poster').value.trim();
+            const vote = document.getElementById('meta_vote').value.trim();
+            const trailer = document.getElementById('meta_trailer').value.trim();
             const status = document.getElementById('post_status').value;
             const pubStatus = document.getElementById('publish_status');
 
@@ -209,7 +254,7 @@
 
             pubStatus.style.display = 'block';
             pubStatus.className = 'status-box';
-            pubStatus.innerText = 'Publicando directamente en MovieEngine Pro...';
+            pubStatus.innerText = 'Enviando ficha, póster y tráiler a MovieEngine Pro...';
 
             const credentials = btoa(`${user}:${pass}`);
 
@@ -227,7 +272,12 @@
                         meta: {
                             ids: imdbId,
                             imdb_id: imdbId,
-                            meta_id: imdbId
+                            meta_id: imdbId,
+                            poster: poster,
+                            imagen: poster,
+                            vote_average: vote,
+                            rating: vote,
+                            trailer: trailer
                         }
                     })
                 });
@@ -235,11 +285,15 @@
                 if (response.ok) {
                     const data = await response.json();
                     pubStatus.className = 'status-box success';
-                    pubStatus.innerText = `¡Publicado con éxito en MovieEngine Pro! (ID: ${data.id})`;
+                    pubStatus.innerText = `¡Publicado con póster y tráiler en MovieEngine Pro! (ID: ${data.id})`;
                     document.getElementById('post_title').value = '';
                     document.getElementById('post_content').value = '';
                     document.getElementById('imdb_input').value = '';
                     document.getElementById('meta_imdb').value = '';
+                    document.getElementById('meta_poster').value = '';
+                    document.getElementById('meta_vote').value = '';
+                    document.getElementById('meta_trailer').value = '';
+                    document.getElementById('poster_preview').style.display = 'none';
                 } else {
                     const errData = await response.json().catch(() => ({}));
                     throw new Error(errData.message || `Error HTTP: ${response.status}`);
