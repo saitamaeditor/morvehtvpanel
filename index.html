@@ -148,7 +148,7 @@
             }
         });
 
-        // 2. Obtener Datos Completos incluyendo Rating
+        // 2. Obtener Datos Completos incluyendo Rating y Póster
         document.getElementById('imdb_btn').addEventListener('click', async () => {
             let imdbVal = document.getElementById('imdb_input').value.trim();
             const imdbStatus = document.getElementById('imdb_status');
@@ -197,7 +197,6 @@
                         prev.style.display = 'block';
                     }
 
-                    // Capturar Rating exacto
                     if (mediaData.imdbRating) {
                         document.getElementById('meta_vote').value = mediaData.imdbRating;
                     }
@@ -225,7 +224,7 @@
             }
         });
 
-        // 3. Publicar enviando todas las variantes de claves meta para MovieEngine
+        // 3. Publicar enviando todas las claves meta que lee MovieEngine Pro (incluyendo poster, vote_average, rating y campos de imagen del tema)
         document.getElementById('publish_btn').addEventListener('click', async () => {
             const url = document.getElementById('wp_url').value.trim().replace(/\/+$/, '');
             const user = document.getElementById('wp_user').value.trim();
@@ -249,7 +248,7 @@
 
             pubStatus.style.display = 'block';
             pubStatus.className = 'status-box';
-            pubStatus.innerText = 'Enviando ficha con rating, póster y tráiler a MovieEngine Pro...';
+            pubStatus.innerText = 'Enviando ficha, rating, póster y tráiler a MovieEngine Pro...';
 
             const credentials = btoa(`${user}:${pass}`);
 
@@ -270,6 +269,7 @@
                             meta_id: imdbId,
                             poster: poster,
                             imagen: poster,
+                            backdrop: poster,
                             vote_average: vote,
                             rating: vote,
                             imdbRating: vote,
