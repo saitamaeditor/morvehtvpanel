@@ -52,7 +52,7 @@
         <h2>1. Importar Metadatos Reales por IMDb</h2>
         <div class="form-group">
             <label>ID O URL DE IMDb (Ej. tt1375666)</label>
-            <input type="text" id="imdb_input" placeholder="https://www.imdb.com/title/tt1375666/ o solo tt1375666">
+            <input type="text" id="imdb_input" placeholder="https://www.imdb.com/title/tt1375666/ o solo tt1375666" value="tt4180135">
         </div>
         <button id="imdb_btn" class="btn-imdb">Obtener Datos Reales de IMDb</button>
         <div id="imdb_status" class="status-box"></div>
@@ -131,7 +131,7 @@
             }
         });
 
-        // 2. Obtener Metadatos Reales desde IMDb usando API pública
+        // 2. Obtener Metadatos Reales desde IMDb (Usando API pública de Cinemeta / TVMaze)
         document.getElementById('imdb_btn').addEventListener('click', async () => {
             let imdbVal = document.getElementById('imdb_input').value.trim();
             const imdbStatus = document.getElementById('imdb_status');
@@ -148,51 +148,52 @@
 
             imdbStatus.style.display = 'block';
             imdbStatus.className = 'status-box';
-            imdbStatus.innerText = `Consultando metadatos reales para (${imdbId})...`;
+            imdbStatus.innerText = `Consultando metadatos para (${imdbId})...`;
 
             try {
-                // Consultar API pública de metadatos de cine basada en IMDb
-                const response = await fetch(`https://v3.sg.media-imdb.com/suggestion/x/${imdbId}.json`);
-                
-                // Si la consulta directa a IMDb funciona, extraemos el título básico, 
-                // y completamos con la API libre de OMDb / alternative para la sinopsis real
-                const omdbRes = await fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=trilogy`);
-                const data = await omdbRes.json();
+                // Usamos la API pública de Stremio/Cinemeta que extrae los datos directos de IMDb en castellano/inglés sin restricciones
+                const res = await fetch(`https://v3-cinemeta.strem.io/meta/movie/${imdbId}.json`);
+                const json = await res.json();
 
-                if (data.Response === "True") {
-                    document.getElementById('post_title').value = data.Title + (data.Year ? ` (${data.Year})` : '');
-                    document.getElementById('post_content').value = data.Plot !== "N/A" ? data.Plot : "Sinopsis oficial disponible próximamente.";
+                if (json && json.meta) {
+                    const movie = json.meta;
+                    document.getElementById('post_title').value = movie.name + (movie.year ? ` (${movie.year})` : '');
+                    document.getElementById('post_content').value = movie.description || "Sinopsis oficial disponible en MorvehTV.";
                     document.getElementById('meta_imdb').value = imdbId;
-
-                    // Autoseleccionar película o serie según el tipo que devuelva OMDb
-                    if (data.Type === "series") {
-                        document.getElementById('post_type').value = "movie_engine_series";
-                    } else {
-                        document.getElementById('post_type').value = "movie_engine_movie";
-                    }
+                    document.getElementById('post_type').value = "movie_engine_movie";
 
                     imdbStatus.className = 'status-box success';
-                    imdbStatus.innerText = `¡Metadatos reales de "${data.Title}" cargados con éxito!`;
+                    imdbStatus.innerText = `¡Metadatos de "${movie.name}" cargados con éxito!`;
                 } else {
-                    throw new Error(data.Error || "No se encontraron datos en IMDb");
+                    // Intentar como serie si no es película
+                    const seriesRes = await fetch(`https://v3-cinemeta.strem.io/meta/series/${imdbId}.json`);
+                    const seriesJson = await seriesRes.json();
+
+                    if (seriesJson && seriesJson.meta) {
+                        const serie = seriesJson.meta;
+                        document.getElementById('post_title').value = serie.name + (serie.year ? ` (${serie.year})` : '');
+                        document.getElementById('post_content').value = serie.description || "Sinopsis oficial de la serie.";
+                        document.getElementById('meta_imdb').value = imdbId;
+                        document.getElementById('post_type').value = "movie_engine_series";
+
+                        imdbStatus.className = 'status-box success';
+                        imdbStatus.innerText = `¡Metadatos de la serie "${serie.name}" cargados con éxito!`;
+                    } else {
+                        throw new Error("No se encontró el contenido.");
+                    }
                 }
             } catch (error) {
-                // Fallback por si la API externa tiene restricciones CORS puntuales
-                document.getElementById('post_title').value = `Título para ${imdbId}`;
-                document.getElementById('post_content').value = `Ficha técnica e información detallada para el identificador IMDb: ${imdbId}.`;
-                document.getElementById('meta_imdb').value = imdbId;
-
-                imdbStatus.className = 'status-box success';
-                imdbStatus.innerText = `ID ${imdbId} cargado correctamente (Modo alternativo).`;
+                imdbStatus.className = 'status-box error';
+                imdbStatus.innerText = `Error al obtener metadatos: ${error.message}`;
             }
         });
 
-        // 3. Publicar directamente en los endpoints exactos de MovieEngine Pro
+        // 3. Publicar directamente en los endpoints de MovieEngine Pro
         document.getElementById('publish_btn').addEventListener('click', async () => {
             const url = document.getElementById('wp_url').value.trim().replace(/\/+$/, '');
             const user = document.getElementById('wp_user').value.trim();
             const pass = document.getElementById('wp_pass').value.trim();
-            const postType = document.getElementById('post_type').value; // movie_engine_movie o movie_engine_series
+            const postType = document.getElementById('post_type').value; 
             const title = document.getElementById('post_title').value.trim();
             const content = document.getElementById('post_content').value.trim();
             const imdbId = document.getElementById('meta_imdb').value.trim();
@@ -213,7 +214,6 @@
             const credentials = btoa(`${user}:${pass}`);
 
             try {
-                // Petición directa al endpoint específico del Custom Post Type de MovieEngine Pro
                 const response = await fetch(`${url}/wp-json/wp/v2/${postType}`, {
                     method: 'POST',
                     headers: {
