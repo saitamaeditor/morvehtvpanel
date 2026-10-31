@@ -157,12 +157,12 @@
             document.getElementById('meta_imdb').value = imdbId;
         });
 
-        // 3. Publicar directamente en el CPT de MovieEngine Pro
+        // 3. Publicar contenido con sistema de reintentos inteligente
         document.getElementById('publish_btn').addEventListener('click', async () => {
             const url = document.getElementById('wp_url').value.trim().replace(/\/+$/, '');
             const user = document.getElementById('wp_user').value.trim();
             const pass = document.getElementById('wp_pass').value.trim();
-            const postType = document.getElementById('post_type').value; // movies o tvshows
+            const postType = document.getElementById('post_type').value; // movies, tvshows, etc.
             const title = document.getElementById('post_title').value.trim();
             const content = document.getElementById('post_content').value.trim();
             const imdbId = document.getElementById('meta_imdb').value.trim();
@@ -178,13 +178,13 @@
 
             pubStatus.style.display = 'block';
             pubStatus.className = 'status-box';
-            pubStatus.innerText = 'Enviando contenido a MovieEngine Pro...';
+            pubStatus.innerText = 'Enviando contenido a MorvehTV...';
 
             const credentials = btoa(`${user}:${pass}`);
 
-            // MovieEngine Pro utiliza custom post types (wp/v2/movies o wp/v2/tvshows) y soporta meta campos
             try {
-                const response = await fetch(`${url}/wp-json/wp/v2/${postType}`, {
+                // Intento 1: Publicar mediante posts estándar con metadatos integrados
+                let response = await fetch(`${url}/wp-json/wp/v2/posts`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Basic ${credentials}`,
@@ -195,9 +195,9 @@
                         content: content,
                         status: status,
                         meta: {
-                            // Clave estándar de metadatos utilizada por MovieEngine Pro / Dooplay para IMDb
-                            meta_id: imdbId,
-                            imdb_id: imdbId
+                            ids: imdbId,
+                            imdb_id: imdbId,
+                            meta_id: imdbId
                         }
                     })
                 });
@@ -205,18 +205,47 @@
                 if (response.ok) {
                     const data = await response.json();
                     pubStatus.className = 'status-box success';
-                    pubStatus.innerText = `¡Publicado correctamente en MovieEngine Pro! (ID del registro: ${data.id})`;
+                    pubStatus.innerText = `¡Publicado con éxito en MorvehTV! (ID del post: ${data.id})`;
                     document.getElementById('post_title').value = '';
                     document.getElementById('post_content').value = '';
                     document.getElementById('imdb_input').value = '';
                     document.getElementById('meta_imdb').value = '';
                 } else {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || `Error HTTP: ${response.status}`);
+                    // Intento 2: Usar la ruta específica del CPT del tema seleccionado
+                    const fallbackResponse = await fetch(`${url}/wp-json/wp/v2/${postType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${credentials}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            title: title,
+                            content: content,
+                            status: status,
+                            meta: {
+                                ids: imdbId,
+                                imdb_id: imdbId,
+                                meta_id: imdbId
+                            }
+                        })
+                    });
+
+                    if (fallbackResponse.ok) {
+                        const data = await fallbackResponse.json();
+                        pubStatus.className = 'status-box success';
+                        pubStatus.innerText = `¡Publicado en MovieEngine Pro (${postType})! (ID: ${data.id})`;
+                        document.getElementById('post_title').value = '';
+                        document.getElementById('post_content').value = '';
+                        document.getElementById('imdb_input').value = '';
+                        document.getElementById('meta_imdb').value = '';
+                    } else {
+                        const errData = await fallbackResponse.json().catch(() => ({}));
+                        throw new Error(errData.message || `Error HTTP: ${fallbackResponse.status}`);
+                    }
                 }
             } catch (error) {
                 pubStatus.className = 'status-box error';
-                pubStatus.innerText = `Error al publicar en MovieEngine Pro: ${error.message}`;
+                pubStatus.innerText = `Error al publicar: ${error.message}`;
             }
         });
     </script>
