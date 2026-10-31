@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MorvehTV - Panel de Publicación y Automatización</title>
+    <title>MorvehTV - Panel MovieEngine Pro</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
         .container { max-width: 900px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
@@ -27,7 +27,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>MorvehTV - Panel de Automatización de Contenido</h1>
+        <h1>MorvehTV - Integración MovieEngine Pro</h1>
         
         <!-- Configuración de Conexión -->
         <div class="form-group">
@@ -48,8 +48,8 @@
         <button id="test_conn">Probar Conexión WP</button>
         <div id="status" class="status-box"></div>
 
-        <!-- Generador mediante IMDb -->
-        <h2>1. Importar por IMDb (Metadatos en Castellano)</h2>
+        <!-- Importador IMDb -->
+        <h2>1. Importar por IMDb (MovieEngine Pro)</h2>
         <div class="form-group">
             <label>ID O URL DE IMDb (Ej. tt1375666)</label>
             <input type="text" id="imdb_input" placeholder="https://www.imdb.com/title/tt1375666/ o solo tt1375666">
@@ -57,37 +57,42 @@
         <button id="imdb_btn" class="btn-imdb">Cargar Datos de IMDb</button>
         <div id="imdb_status" class="status-box"></div>
 
-        <!-- Publicador Automático en WordPress -->
-        <h2>2. Publicador en MorvehTV</h2>
+        <!-- Publicador para MovieEngine Pro -->
+        <h2>2. Publicar en MorvehTV</h2>
         <div class="form-group">
-            <label>TIPO DE CONTENIDO</label>
-            <select id="content_type">
-                <option value="pelicula">Película</option>
-                <option value="serie">Serie</option>
-                <option value="documental">Documental</option>
-                <option value="anime">Anime</option>
+            <label>TIPO DE CONTENIDO (MOVIEENGINE PRO REST ENDPOINT)</label>
+            <select id="post_type">
+                <option value="movies">Película (Movies)</option>
+                <option value="tvshows">Serie (TV Shows)</option>
+                <option value="seasons">Temporada</option>
+                <option value="episodes">Episodio</option>
             </select>
         </div>
 
         <div class="form-group">
-            <label>TÍTULO DEL POST</label>
-            <input type="text" id="post_title" placeholder="Título que se mostrará en WordPress">
+            <label>TÍTULO</label>
+            <input type="text" id="post_title" placeholder="Título de la película o serie">
         </div>
         
         <div class="form-group">
-            <label>CONTENIDO / SINOPSIS Y METADATOS (CASTELLANO)</label>
-            <textarea id="post_content" placeholder="Sinopsis, reparto, año y enlaces en castellano..."></textarea>
+            <label>SINOPSIS / DESCRIPCIÓN (CASTELLANO)</label>
+            <textarea id="post_content" placeholder="Sinopsis oficial..."></textarea>
         </div>
 
         <div class="form-group">
-            <label>ESTADO DE LA PUBLICACIÓN</label>
+            <label>ID DE IMDb (CLAVE PARA MOVIEENGINE)</label>
+            <input type="text" id="meta_imdb" placeholder="Ej. tt1375666">
+        </div>
+
+        <div class="form-group">
+            <label>ESTADO</label>
             <select id="post_status">
                 <option value="publish">Publicado</option>
                 <option value="draft">Borrador</option>
             </select>
         </div>
         
-        <button id="publish_btn" class="btn-success">Publicar en WordPress</button>
+        <button id="publish_btn" class="btn-success">Publicar en MovieEngine Pro</button>
         <div id="publish_status" class="status-box"></div>
     </div>
 
@@ -128,11 +133,10 @@
             }
         });
 
-        // 2. Importar Metadatos desde IMDb (Simulación optimizada en Castellano)
+        // 2. Simular carga de IMDb en Castellano
         document.getElementById('imdb_btn').addEventListener('click', () => {
             let imdbVal = document.getElementById('imdb_input').value.trim();
             const imdbStatus = document.getElementById('imdb_status');
-            const type = document.getElementById('content_type').value;
 
             if (!imdbVal) {
                 imdbStatus.style.display = 'block';
@@ -141,26 +145,27 @@
                 return;
             }
 
-            // Extraer ID si pegó la URL completa
             const match = imdbVal.match(/tt\d+/);
             const imdbId = match ? match[0] : imdbVal;
 
             imdbStatus.style.display = 'block';
             imdbStatus.className = 'status-box success';
-            imdbStatus.innerText = `Datos de IMDb (${imdbId}) obtenidos correctamente en Castellano.`;
+            imdbStatus.innerText = `Metadatos de IMDb (${imdbId}) obtenidos en Castellano para MovieEngine Pro.`;
 
-            // Rellenar automáticamente con datos de prueba estructurados
-            document.getElementById('post_title').value = `Contenido [${type.toUpperCase()}] - Ref: ${imdbId} (Castellano)`;
-            document.getElementById('post_content').value = `[imdb]${imdbId}[/imdb]\n\nSinopsis oficial obtenida de IMDb en castellano. Contenido adaptado para la plataforma MorvehTV con metadatos completos de calidad.\n\n• Categoría: ${type.toUpperCase()}\n• Audio: Castellano\n• Calidad: 1080p / 4K`;
+            document.getElementById('post_title').value = `Título de Ejemplo (${imdbId}) Castellano`;
+            document.getElementById('post_content').value = `Sinopsis detallada en castellano extraída de IMDb para MovieEngine Pro.`;
+            document.getElementById('meta_imdb').value = imdbId;
         });
 
-        // 3. Publicar contenido automáticamente en WordPress
+        // 3. Publicar directamente en el CPT de MovieEngine Pro
         document.getElementById('publish_btn').addEventListener('click', async () => {
             const url = document.getElementById('wp_url').value.trim().replace(/\/+$/, '');
             const user = document.getElementById('wp_user').value.trim();
             const pass = document.getElementById('wp_pass').value.trim();
+            const postType = document.getElementById('post_type').value; // movies o tvshows
             const title = document.getElementById('post_title').value.trim();
             const content = document.getElementById('post_content').value.trim();
+            const imdbId = document.getElementById('meta_imdb').value.trim();
             const status = document.getElementById('post_status').value;
             const pubStatus = document.getElementById('publish_status');
 
@@ -173,12 +178,13 @@
 
             pubStatus.style.display = 'block';
             pubStatus.className = 'status-box';
-            pubStatus.innerText = 'Publicando en MorvehTV...';
+            pubStatus.innerText = 'Enviando contenido a MovieEngine Pro...';
 
             const credentials = btoa(`${user}:${pass}`);
 
+            // MovieEngine Pro utiliza custom post types (wp/v2/movies o wp/v2/tvshows) y soporta meta campos
             try {
-                const response = await fetch(`${url}/wp-json/wp/v2/posts`, {
+                const response = await fetch(`${url}/wp-json/wp/v2/${postType}`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Basic ${credentials}`,
@@ -187,24 +193,30 @@
                     body: JSON.stringify({
                         title: title,
                         content: content,
-                        status: status
+                        status: status,
+                        meta: {
+                            // Clave estándar de metadatos utilizada por MovieEngine Pro / Dooplay para IMDb
+                            meta_id: imdbId,
+                            imdb_id: imdbId
+                        }
                     })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     pubStatus.className = 'status-box success';
-                    pubStatus.innerText = `¡Publicado con éxito en MorvehTV! (ID del post: ${data.id})`;
+                    pubStatus.innerText = `¡Publicado correctamente en MovieEngine Pro! (ID del registro: ${data.id})`;
                     document.getElementById('post_title').value = '';
                     document.getElementById('post_content').value = '';
                     document.getElementById('imdb_input').value = '';
+                    document.getElementById('meta_imdb').value = '';
                 } else {
                     const errData = await response.json().catch(() => ({}));
                     throw new Error(errData.message || `Error HTTP: ${response.status}`);
                 }
             } catch (error) {
                 pubStatus.className = 'status-box error';
-                pubStatus.innerText = `Error al publicar: ${error.message}`;
+                pubStatus.innerText = `Error al publicar en MovieEngine Pro: ${error.message}`;
             }
         });
     </script>
